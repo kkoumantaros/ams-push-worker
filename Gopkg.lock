@@ -72,8 +72,11 @@
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
-  packages = ["."]
-  revision = "ad15b42461921f1fb3529b058c6786c6a45d5162"
+  packages = [
+    ".",
+    "hooks/syslog"
+  ]
+   revision = "ad15b42461921f1fb3529b058c6786c6a45d5162"
   version = "v1.1.1"
 
 [[projects]]

@@ -44,7 +44,6 @@ type AMSClient struct {
 	Endpoint     string
 	Client       *http.Client
 	Project      string
-	Subscription string
 	Token        string
 	ContentType  string
 }
@@ -85,7 +84,7 @@ func (ams *AMSClient) loadSubscription(subNAME string) (Subscription, error) {
 	var sub Subscription
 	var err error
 
-	url := fmt.Sprintf("https://%v/v1/projects/%v/subscriptions/%v?key=%v", ams.Endpoint, ams.Project, ams.Subscription, ams.Token)
+	url := fmt.Sprintf("https://%v/v1/projects/%v/subscriptions/%v?key=%v", ams.Endpoint, ams.Project, subNAME, ams.Token)
 
 	req, err := http.NewRequest("GET", url, nil)
 
@@ -127,7 +126,7 @@ func (ams *AMSClient) pullMsg(subName string) (RecList, error) {
 	var reqList RecList
 	var err error
 
-	url := fmt.Sprintf("https://%v/v1/projects/%v/subscriptions/%v:pull?key=%v", ams.Endpoint, ams.Project, ams.Subscription, ams.Token)
+	url := fmt.Sprintf("https://%v/v1/projects/%v/subscriptions/%v:pull?key=%v", ams.Endpoint, ams.Project, subName, ams.Token)
 
 	pullOptions := PullOptions{MaxMessages: "1", ReturnImmediately: "true"}
 	pullOptB, err := json.Marshal(pullOptions)
@@ -215,7 +214,7 @@ func (ams *AMSClient) publish(msg PushMsg, endpoint string) error {
 
 }
 
-func (ams *AMSClient) ackMessage(ackId string) error {
+func (ams *AMSClient) ackMessage(subName string, ackId string) error {
 
 	var err error
 
@@ -227,7 +226,7 @@ func (ams *AMSClient) ackMessage(ackId string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%v/v1/projects/%v/subscriptions/%v:acknowledge?key=%v", ams.Endpoint, ams.Project, ams.Subscription, ams.Token)
+	url := fmt.Sprintf("https://%v/v1/projects/%v/subscriptions/%v:acknowledge?key=%v", ams.Endpoint, ams.Project, subName , ams.Token)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(ackB))
 
@@ -291,7 +290,7 @@ func (ams *AMSClient) Push(subName string) error {
 
 		}
 
-		err := ams.ackMessage(msg.AckID)
+		err := ams.ackMessage(subName, msg.AckID)
 		if err != nil {
 			return err
 		}
