@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # go-push-worker
 
 ### How to run
@@ -30,3 +31,7 @@
  --poll 2
  --auth tok3n
 ```
+=======
+# ams-push-worker
+A simple worker from AMS Push Subscriptions
+>>>>>>> 954025d (Initial commit)
