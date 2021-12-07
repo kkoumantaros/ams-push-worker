@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
+	"log"
 	"net/http"
 	"time"
 )
@@ -41,11 +41,11 @@ type Message struct {
 }
 
 type AMSClient struct {
-	Endpoint     string
-	Client       *http.Client
-	Project      string
-	Token        string
-	ContentType  string
+	Endpoint    string
+	Client      *http.Client
+	Project     string
+	Token       string
+	ContentType string
 }
 
 type PullOptions struct {
@@ -93,7 +93,7 @@ func (ams *AMSClient) loadSubscription(subNAME string) (Subscription, error) {
 	}
 
 	req.Header.Set("Content-type", ams.ContentType)
-	log.Infof("Trying to retrieve subscription: %v from endpoint: %v", subNAME, ams.Endpoint)
+	log.Printf("INFO: Trying to retrieve subscription: %v from endpoint: %v", subNAME, ams.Endpoint)
 
 	t1 := time.Now()
 	resp, err := ams.Client.Do(req)
@@ -116,7 +116,7 @@ func (ams *AMSClient) loadSubscription(subNAME string) (Subscription, error) {
 		return sub, err
 	}
 
-	log.Infof("Retrieved subscription: %+v from endpoint: %v in %v", sub, ams.Endpoint, time.Since(t1).String())
+	log.Printf("INFO: Retrieved subscription: %+v from endpoint: %v in %v", sub, ams.Endpoint, time.Since(t1).String())
 
 	return sub, err
 }
@@ -141,7 +141,7 @@ func (ams *AMSClient) pullMsg(subName string) (RecList, error) {
 	}
 
 	req.Header.Set("Content-Type", ams.ContentType)
-	log.Infof("Trying to pull messages using subscription: %v from endpoint: %v", subName, ams.Endpoint)
+	log.Printf("INFO: Trying to pull messages using subscription: %v from endpoint: %v", subName, ams.Endpoint)
 
 	t1 := time.Now()
 	resp, err := ams.Client.Do(req)
@@ -166,13 +166,13 @@ func (ams *AMSClient) pullMsg(subName string) (RecList, error) {
 		return reqList, err
 	}
 
-	log.Infof("Messages %+v from endpoint: %v consumed in: %v", reqList, ams.Endpoint, time.Since(t1).String())
+	log.Printf("INFO: Messages %+v from endpoint: %v consumed in: %v", reqList, ams.Endpoint, time.Since(t1).String())
 
 	return reqList, err
 
 }
 
-func (ams *AMSClient) publish(msg PushMsg, endpoint string) error {
+func (ams *AMSClient) publish(msg PushMsg, endpoint string, authHeader string) error {
 
 	var err error
 
@@ -189,7 +189,8 @@ func (ams *AMSClient) publish(msg PushMsg, endpoint string) error {
 	}
 
 	req.Header.Set("Content-Type", ams.ContentType)
-	log.Infof("Trying to push message: %+v to: %v", msg, endpoint)
+	req.Header.Set("Authorization", authHeader)
+	log.Printf("INFO: Trying to push message: %+v to: %v", msg, endpoint)
 
 	t1 := time.Now()
 	resp, err := ams.Client.Do(req)
@@ -208,7 +209,7 @@ func (ams *AMSClient) publish(msg PushMsg, endpoint string) error {
 		return err
 	}
 
-	log.Infof("Message: %+v to endpoint: %v delivered in: %v", msg, endpoint, time.Since(t1).String())
+	log.Printf("INFO: Message: %+v to endpoint: %v delivered in: %v", msg, endpoint, time.Since(t1).String())
 
 	return err
 
@@ -226,7 +227,7 @@ func (ams *AMSClient) ackMessage(subName string, ackId string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%v/v1/projects/%v/subscriptions/%v:acknowledge?key=%v", ams.Endpoint, ams.Project, subName , ams.Token)
+	url := fmt.Sprintf("https://%v/v1/projects/%v/subscriptions/%v:acknowledge?key=%v", ams.Endpoint, ams.Project, subName, ams.Token)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(ackB))
 
@@ -255,16 +256,17 @@ func (ams *AMSClient) ackMessage(subName string, ackId string) error {
 
 }
 
-func (ams *AMSClient) Push(subName string) error {
+func (ams *AMSClient) Push(subName string, remoteEndpoint string, authHeader string) error {
 
 	var err error
 
 	// load thr subscription from ams
 	sub, err := ams.loadSubscription(subName)
-
 	if err != nil {
 		return err
 	}
+
+	sub.PushCfg.Pend = remoteEndpoint
 
 	// pull messages
 	recM, err := ams.pullMsg(subName)
@@ -275,15 +277,15 @@ func (ams *AMSClient) Push(subName string) error {
 
 	// check if there are new messages
 	if len(recM.RecMsgs) == 0 {
-		log.Info("No new messages")
+		log.Printf("INFO: No new messages")
 		return err
 	}
 
-	for _,msg := range recM.RecMsgs {
+	for _, msg := range recM.RecMsgs {
 
 		// publish the message to the endpoint
-		pMsg := PushMsg{Msg: msg.Msg, Sub:subName}
-		err = ams.publish(pMsg, sub.PushCfg.Pend)
+		pMsg := PushMsg{Msg: msg.Msg, Sub: subName}
+		err = ams.publish(pMsg, sub.PushCfg.Pend, authHeader)
 
 		if err != nil {
 			return err

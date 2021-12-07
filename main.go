@@ -1,22 +1,12 @@
 package main
 
 import (
-	log "github.com/sirupsen/logrus"
-	lSyslog "github.com/sirupsen/logrus/hooks/syslog"
-	"log/syslog"
-	"flag"
-	"net/http"
 	"crypto/tls"
+	"flag"
+	"log"
+	"net/http"
 	"time"
 )
-
-func init() {
-	log.SetFormatter(&log.TextFormatter{FullTimestamp: true, DisableColors: true})
-	hook, err := lSyslog.NewSyslogHook("", "", syslog.LOG_INFO, "")
-	if err == nil {
-		log.AddHook(hook)
-	}
-}
 
 func main() {
 
@@ -25,6 +15,8 @@ func main() {
 	var host = flag.String("host", "", "AMS host")
 	var token = flag.String("token", "", "AMS token")
 	var pollRate = flag.Int64("poll", 0, "Poll rate")
+	var remoteEndpoint = flag.String("endpoint", "", "Remote endpoint url")
+	var remoteEndpointAuthHeader = flag.String("auth", "", "Remote endpoint expected authorization header")
 
 	flag.Parse()
 
@@ -37,10 +29,10 @@ func main() {
 	ams := AMSClient{Endpoint: *host, Project: *project, Token: *token, Client: client}
 
 	for {
-		err := ams.Push(*sub)
+		err := ams.Push(*sub, *remoteEndpoint, *remoteEndpointAuthHeader)
 
 		if err != nil {
-			log.Error(err)
+			log.Printf("ERROR: %v", err)
 		}
 
 		time.Sleep(time.Duration(*pollRate) * time.Second)
